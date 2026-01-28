@@ -57,6 +57,7 @@ clang-tidy -p build src/*.cpp
 @context/standards/version-control.md
 @context/standards/cmake-best-practices.md
 @context/standards/googletest-reference.md
+@context/standards/taskflow-reference.md
 
 ## Project Structure
 
