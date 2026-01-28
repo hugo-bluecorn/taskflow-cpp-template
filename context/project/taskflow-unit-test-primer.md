@@ -39,24 +39,38 @@ Before starting, ensure you have:
 
 Before creating any files, confirm your environment is working.
 
-### 0.1: Build the Project
+### 0.1: Choose TDD Preset
+
+This project provides two TDD presets with sanitizers enabled:
+
+| Preset | Sanitizers | Use Case |
+|--------|------------|----------|
+| `tdd-tsan` | Thread + UB | **Primary** - Catches race conditions (critical for Taskflow) |
+| `tdd-asan` | Address + UB | Alternative - Catches memory errors, includes coverage |
+
+For this primer (and most Taskflow development), use `tdd-tsan` because:
+- Taskflow is a parallel programming library
+- Race conditions are the most common and subtle bugs
+- Thread sanitizer catches issues that would otherwise be intermittent
+
+### 0.2: Configure and Build
 
 ```bash
-cmake --preset default
-cmake --build build
+cmake --preset tdd-tsan
+cmake --build build-tdd-tsan
 ```
 
 Expected: Build completes without errors.
 
-### 0.2: Run Existing Tests
+### 0.3: Run Existing Tests
 
 ```bash
-ctest --test-dir build --output-on-failure
+ctest --test-dir build-tdd-tsan --output-on-failure
 ```
 
-Expected: All existing tests pass.
+Expected: All existing tests pass with no sanitizer warnings.
 
-### 0.3: Open VSCode
+### 0.4: Open VSCode
 
 ```bash
 code .
@@ -152,7 +166,7 @@ gtest_discover_tests(mylib_tests
 ### 1.3: Attempt to Build (Expect Failure)
 
 ```bash
-cmake --build build
+cmake --build build-tdd-tsan
 ```
 
 Expected error:
@@ -190,7 +204,7 @@ class SimplePipeline {
 ### 1.5: Build Again
 
 ```bash
-cmake --build build
+cmake --build build-tdd-tsan
 ```
 
 Expected: Build succeeds (no compile errors).
@@ -198,7 +212,7 @@ Expected: Build succeeds (no compile errors).
 ### 1.6: Run Test (Expect Failure)
 
 ```bash
-ctest --test-dir build -R SimplePipeline --output-on-failure
+ctest --test-dir build-tdd-tsan -R SimplePipeline --output-on-failure
 ```
 
 Expected output:
@@ -288,7 +302,7 @@ class SimplePipeline {
 ### 2.2: Build
 
 ```bash
-cmake --build build
+cmake --build build-tdd-tsan
 ```
 
 Expected: Build succeeds.
@@ -296,7 +310,7 @@ Expected: Build succeeds.
 ### 2.3: Run Test (Expect Pass)
 
 ```bash
-ctest --test-dir build -R SimplePipeline --output-on-failure
+ctest --test-dir build-tdd-tsan -R SimplePipeline --output-on-failure
 ```
 
 Expected output:
@@ -400,8 +414,8 @@ class SimplePipeline {
 ### 3.3: Verify Existing Test Still Passes
 
 ```bash
-cmake --build build
-ctest --test-dir build -R SimplePipeline --output-on-failure
+cmake --build build-tdd-tsan
+ctest --test-dir build-tdd-tsan -R SimplePipeline --output-on-failure
 ```
 
 Expected: Test still passes. Refactoring must not break existing functionality.
@@ -477,14 +491,14 @@ TEST(SimplePipeline, Run_AfterReset_StartsFromZero) {
 ### 3.5: Build and Run All Tests
 
 ```bash
-cmake --build build
-ctest --test-dir build -R SimplePipeline --output-on-failure
+cmake --build build-tdd-tsan
+ctest --test-dir build-tdd-tsan -R SimplePipeline --output-on-failure
 ```
 
 Expected output:
 
 ```
-Test project /path/to/build
+Test project /path/to/build-tdd-tsan
     Start 1: SimplePipeline.Run_TwoSequentialTasks_ReturnsTwo
 1/6 Test #1: SimplePipeline.Run_TwoSequentialTasks_ReturnsTwo   Passed
     Start 2: SimplePipeline.GetCounter_BeforeRun_ReturnsZero
@@ -585,31 +599,33 @@ Try each of these actions:
 
 ---
 
-## Phase 5: Run with Sanitizers (Optional)
+## Phase 5: Test with Address Sanitizer (Optional)
 
-For real development, you should test with sanitizers to catch threading and memory issues.
+You have been developing with `tdd-tsan` (Thread Sanitizer) which catches race conditions. Before finalizing, it's good practice to also run with `tdd-asan` (Address Sanitizer) to catch memory errors.
 
-### 5.1: Thread Sanitizer
-
-Detects race conditions:
-
-```bash
-cmake --preset tdd-tsan
-cmake --build build-tdd-tsan
-ctest --test-dir build-tdd-tsan -R SimplePipeline --output-on-failure
-```
-
-### 5.2: Address Sanitizer
-
-Detects memory errors:
+### 5.1: Build with Address Sanitizer
 
 ```bash
 cmake --preset tdd-asan
 cmake --build build-tdd-asan
+```
+
+### 5.2: Run Tests
+
+```bash
 ctest --test-dir build-tdd-asan -R SimplePipeline --output-on-failure
 ```
 
-Both should pass without errors. If they fail, it indicates bugs in the code.
+Expected: All tests pass with no sanitizer warnings.
+
+### 5.3: When to Use Each Preset
+
+| Preset | Best For |
+|--------|----------|
+| `tdd-tsan` | Daily development with Taskflow (catches race conditions) |
+| `tdd-asan` | Before commits, CI (catches memory errors + coverage) |
+
+**Note:** You cannot run both sanitizers simultaneously - they are mutually exclusive. Switch between them as needed.
 
 ---
 
@@ -655,12 +671,12 @@ Expected: Only `main` (and any other real branches) listed.
 
 | Task | Command |
 |------|---------|
-| Configure build | `cmake --preset default` |
-| Build | `cmake --build build` |
-| Run all tests | `ctest --test-dir build --output-on-failure` |
-| Run specific tests | `ctest --test-dir build -R PatternName` |
-| Thread sanitizer | `cmake --preset tdd-tsan && cmake --build build-tdd-tsan` |
-| Address sanitizer | `cmake --preset tdd-asan && cmake --build build-tdd-asan` |
+| Configure (TDD) | `cmake --preset tdd-tsan` |
+| Build | `cmake --build build-tdd-tsan` |
+| Run all tests | `ctest --test-dir build-tdd-tsan --output-on-failure` |
+| Run specific tests | `ctest --test-dir build-tdd-tsan -R PatternName` |
+| Switch to ASan | `cmake --preset tdd-asan && cmake --build build-tdd-asan` |
+| Release build | `cmake --preset release && cmake --build build-release` |
 
 ### Test Naming Convention
 

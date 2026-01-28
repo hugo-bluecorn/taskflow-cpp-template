@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VSCode GoogleTest integration analysis document
 
 ### Changed
+- TDD primer now uses `tdd-tsan` preset as primary development build
+
+### Changed
 - Refactored Taskflow testing patterns catalog from doctest to GoogleTest syntax
 
 ## [0.1.0] - 2026-01-28
