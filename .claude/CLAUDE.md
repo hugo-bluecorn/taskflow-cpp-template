@@ -29,11 +29,14 @@ cmake --preset default && cmake --build build
 # Run tests
 ctest --test-dir build --output-on-failure
 
-# TDD build with coverage and sanitizers
-cmake --preset tdd && cmake --build build-tdd
+# TDD build with thread sanitizer (race detection)
+cmake --preset tdd-tsan && cmake --build build-tdd-tsan
+
+# TDD build with address sanitizer + coverage
+cmake --preset tdd-asan && cmake --build build-tdd-asan
 
 # Generate coverage report
-cmake --build build-tdd --target coverage
+cmake --build build-tdd-asan --target coverage
 ```
 
 ### Code Quality
@@ -58,6 +61,7 @@ clang-tidy -p build src/*.cpp
 @context/standards/cmake-best-practices.md
 @context/standards/googletest-reference.md
 @context/standards/taskflow-reference.md
+@context/standards/taskflow-testing-patterns.md
 
 ## Project Structure
 
