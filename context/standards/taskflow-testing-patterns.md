@@ -1,34 +1,30 @@
 # Taskflow Testing Patterns Reference
 
-Reference catalog of unit test patterns from Taskflow's test suite for TDD development.
+Reference catalog of unit test patterns for TDD development with Taskflow using GoogleTest.
 
 ## Overview
 
-Taskflow uses **doctest** for testing. This catalog documents testing patterns that can be adapted to any framework.
+This catalog provides GoogleTest patterns for testing Taskflow-based applications, derived from Taskflow's test suite.
 
-**Doctest Basics:**
+**GoogleTest Basics:**
 ```cpp
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include <doctest.h>
+#include <gtest/gtest.h>
 #include <taskflow/taskflow.hpp>
 
-TEST_CASE("TestName" * doctest::timeout(300)) {
-  // Test body
-  REQUIRE(condition);
-}
-
-TEST_CASE("TestWithSubcases") {
-  SUBCASE("Variation1") { /* ... */ }
-  SUBCASE("Variation2") { /* ... */ }
+TEST(SuiteName, TestName) {
+    // Test body
+    EXPECT_EQ(actual, expected);
 }
 ```
 
 **Key Assertions:**
 | Assertion | Purpose |
 |-----------|---------|
-| `REQUIRE(cond)` | Assert condition is true |
-| `REQUIRE_NOTHROW(expr)` | Assert no exception thrown |
-| `REQUIRE_THROWS_WITH_AS(expr, msg, type)` | Assert specific exception |
+| `EXPECT_EQ(a, b)` | Non-fatal equality check |
+| `ASSERT_EQ(a, b)` | Fatal equality check (stops test) |
+| `EXPECT_TRUE(cond)` | Condition is true |
+| `EXPECT_THROW(expr, type)` | Throws specific exception |
+| `EXPECT_NO_THROW(expr)` | No exception thrown |
 
 ---
 
@@ -37,11 +33,13 @@ TEST_CASE("TestWithSubcases") {
 ### Basic Executor and Taskflow
 
 ```cpp
-tf::Executor executor;        // Default: hardware concurrency
-tf::Taskflow taskflow;
+TEST(TaskflowTest, BasicSetup) {
+    tf::Executor executor;        // Default: hardware concurrency
+    tf::Taskflow taskflow;
 
-// Or specify thread count
-tf::Executor executor(4);     // 4 worker threads
+    // Or specify thread count
+    tf::Executor executor4(4);    // 4 worker threads
+}
 ```
 
 ### Thread Count Parameterization
@@ -49,31 +47,69 @@ tf::Executor executor(4);     // 4 worker threads
 Test same logic across different thread counts:
 
 ```cpp
-void test_feature(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+class TaskflowThreadTest : public ::testing::TestWithParam<unsigned> {};
 
-  // ... test implementation
+TEST_P(TaskflowThreadTest, ExecutesCorrectly) {
+    unsigned num_threads = GetParam();
+    tf::Executor executor(num_threads);
+    tf::Taskflow taskflow;
 
-  executor.run(taskflow).wait();
-  REQUIRE(result == expected);
+    std::atomic<int> counter{0};
+    taskflow.emplace([&]{ counter++; });
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 1);
 }
 
-TEST_CASE("Feature.1thread") { test_feature(1); }
-TEST_CASE("Feature.2threads") { test_feature(2); }
-TEST_CASE("Feature.4threads") { test_feature(4); }
-TEST_CASE("Feature.8threads") { test_feature(8); }
+INSTANTIATE_TEST_SUITE_P(
+    ThreadCounts,
+    TaskflowThreadTest,
+    ::testing::Values(1, 2, 4, 8)
+);
+```
+
+### Test Fixture for Taskflow
+
+```cpp
+class TaskflowFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        counter = 0;
+    }
+
+    void TearDown() override {
+        taskflow.clear();
+    }
+
+    tf::Executor executor{4};
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
+};
+
+TEST_F(TaskflowFixture, TasksExecute) {
+    taskflow.emplace([this]{ counter++; });
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 1);
+}
 ```
 
 ### Reusable Taskflow Pattern
 
 ```cpp
-for(int iteration = 0; iteration < 100; iteration++) {
-  taskflow.clear();  // Reset for reuse
+TEST(TaskflowTest, ReusableTaskflow) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-  // ... rebuild tasks
+    for(int iteration = 0; iteration < 100; iteration++) {
+        taskflow.clear();  // Reset for reuse
+        counter = 0;
 
-  executor.run(taskflow).wait();
+        taskflow.emplace([&]{ counter++; });
+        executor.run(taskflow).wait();
+
+        EXPECT_EQ(counter, 1);
+    }
 }
 ```
 
@@ -84,116 +120,153 @@ for(int iteration = 0; iteration < 100; iteration++) {
 ### Task Creation and Dependencies
 
 ```cpp
-// Static task (void callable)
-auto A = taskflow.emplace([&]{ /* work */ });
+TEST(TaskflowCore, TaskDependencies) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-// Named task
-auto B = taskflow.emplace([&]{ /* work */ }).name("TaskB");
+    // Static task (void callable)
+    auto A = taskflow.emplace([&]{ counter++; });
 
-// Dependencies
-A.precede(B);           // A runs before B
-B.succeed(A);           // Equivalent
+    // Named task
+    auto B = taskflow.emplace([&]{ counter++; }).name("TaskB");
 
-// Fan-out (broadcast)
-A.precede(B, C, D);     // A before all of B, C, D
+    // Dependencies
+    A.precede(B);           // A runs before B
 
-// Fan-in (join)
-A.precede(D);
-B.precede(D);
-C.precede(D);           // D waits for A, B, C
-```
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 2);
+}
 
-**Verification:**
-```cpp
-REQUIRE(taskflow.num_tasks() == 4);
-REQUIRE(A.num_successors() == 3);
-REQUIRE(D.num_predecessors() == 3);
+TEST(TaskflowCore, FanOutFanIn) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
+
+    auto A = taskflow.emplace([&]{ counter++; });
+    auto B = taskflow.emplace([&]{ counter++; });
+    auto C = taskflow.emplace([&]{ counter++; });
+    auto D = taskflow.emplace([&]{ counter++; });
+
+    // Fan-out: A before B, C, D
+    A.precede(B, C, D);
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 4);
+
+    // Verify graph structure
+    EXPECT_EQ(taskflow.num_tasks(), 4);
+    EXPECT_EQ(A.num_successors(), 3);
+}
 ```
 
 ### Subflow Testing
 
 ```cpp
-std::atomic<int> counter{0};
+TEST(TaskflowCore, SubflowExecution) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-auto subflow_task = taskflow.emplace([&](tf::Subflow& sf) {
-  counter++;
+    auto subflow_task = taskflow.emplace([&](tf::Subflow& sf) {
+        counter++;
 
-  auto sub_a = sf.emplace([&]{ counter++; });
-  auto sub_b = sf.emplace([&]{ counter++; });
-  sub_a.precede(sub_b);
+        auto sub_a = sf.emplace([&]{ counter++; });
+        auto sub_b = sf.emplace([&]{ counter++; });
+        sub_a.precede(sub_b);
 
-  // Implicit join at lambda end
-});
-
-executor.run(taskflow).wait();
-REQUIRE(counter == 3);
-```
-
-**Nested Subflows:**
-```cpp
-taskflow.emplace([&](tf::Subflow& sf1) {
-  sf1.emplace([&](tf::Subflow& sf2) {
-    sf2.emplace([&](tf::Subflow& sf3) {
-      // Deep nesting supported
+        // Implicit join at lambda end
     });
-  });
-});
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 3);
+}
+
+TEST(TaskflowCore, NestedSubflows) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
+
+    taskflow.emplace([&](tf::Subflow& sf1) {
+        counter++;
+        sf1.emplace([&](tf::Subflow& sf2) {
+            counter++;
+            sf2.emplace([&](tf::Subflow& sf3) {
+                counter++;
+            });
+        });
+    });
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 3);
+}
 ```
 
 ### Conditional Tasking
 
 ```cpp
-int counter = 0;
+TEST(TaskflowCore, ConditionalLoop) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    int counter = 0;
 
-auto init = taskflow.emplace([&]{ counter = 0; });
+    auto init = taskflow.emplace([&]{ counter = 0; });
 
-auto cond = taskflow.emplace([&]() -> int {
-  return (++counter < 5) ? 0 : 1;  // 0=loop, 1=exit
-});
+    auto cond = taskflow.emplace([&]() -> int {
+        return (++counter < 5) ? 0 : 1;  // 0=loop, 1=exit
+    });
 
-auto body = taskflow.emplace([&]{ /* loop body */ });
-auto done = taskflow.emplace([&]{ /* exit */ });
+    auto body = taskflow.emplace([&]{ /* loop body */ });
+    auto done = taskflow.emplace([&]{ /* exit */ });
 
-init.precede(cond);
-cond.precede(body, done);  // 0->body, 1->done
-body.precede(cond);        // Loop back
+    init.precede(cond);
+    cond.precede(body, done);  // 0->body, 1->done
+    body.precede(cond);        // Loop back
 
-executor.run(taskflow).wait();
-REQUIRE(counter == 5);
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 5);
+}
 ```
 
 ### Async Tasks
 
 ```cpp
-std::vector<std::future<int>> futures;
-std::atomic<int> counter{0};
+TEST(TaskflowCore, AsyncWithFuture) {
+    tf::Executor executor(4);
+    std::atomic<int> counter{0};
 
-// Async with return value
-futures.push_back(executor.async([&]{
-  counter++;
-  return 42;
-}));
-
-// Silent async (no return)
-executor.silent_async([&]{ counter++; });
-
-// Wait for all
-executor.wait_for_all();
-
-REQUIRE(counter == 2);
-REQUIRE(futures[0].get() == 42);
-```
-
-**Nested Async:**
-```cpp
-executor.async([&]{
-  executor.async([&]{
-    executor.async([&]{
-      counter++;
+    // Async with return value
+    auto future = executor.async([&]{
+        counter++;
+        return 42;
     });
-  });
-});
-executor.wait_for_all();
+
+    // Silent async (no return)
+    executor.silent_async([&]{ counter++; });
+
+    executor.wait_for_all();
+
+    EXPECT_EQ(counter, 2);
+    EXPECT_EQ(future.get(), 42);
+}
+
+TEST(TaskflowCore, NestedAsync) {
+    tf::Executor executor(4);
+    std::atomic<int> counter{0};
+
+    executor.async([&]{
+        counter++;
+        executor.async([&]{
+            counter++;
+            executor.async([&]{
+                counter++;
+            });
+        });
+    });
+
+    executor.wait_for_all();
+    EXPECT_EQ(counter, 3);
+}
 ```
 
 ---
@@ -203,129 +276,219 @@ executor.wait_for_all();
 ### for_each Testing
 
 ```cpp
-template <typename P>
-void test_for_each(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowAlgorithm, ForEachIndex) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::vector<int> vec(1000, 0);
-  std::atomic<int> counter{0};
+    std::vector<int> vec(100, 0);
+    std::atomic<int> counter{0};
 
-  // Test varying sizes and chunk counts
-  for(size_t n = 0; n <= 100; n++) {
-    for(size_t c : {0, 1, 3, 7, 99}) {
-      taskflow.clear();
-      counter = 0;
+    taskflow.for_each_index(0, 100, 1,
+        [&](int i){
+            counter++;
+            vec[i] = i;
+        }
+    );
 
-      // Index-based
-      taskflow.for_each_index(0, (int)n, 1,
-        [&](int i){ counter++; vec[i] = i; },
-        P(c)
-      );
+    executor.run(taskflow).wait();
 
-      executor.run(taskflow).wait();
-      REQUIRE(counter == n);
+    EXPECT_EQ(counter, 100);
+    for(int i = 0; i < 100; i++) {
+        EXPECT_EQ(vec[i], i);
     }
-  }
 }
 
-// Instantiate with partitioners
-TEST_CASE("ForEach.Guided") { test_for_each<tf::GuidedPartitioner<>>(4); }
-TEST_CASE("ForEach.Static") { test_for_each<tf::StaticPartitioner<>>(4); }
-TEST_CASE("ForEach.Dynamic") { test_for_each<tf::DynamicPartitioner<>>(4); }
+TEST(TaskflowAlgorithm, ForEachIterator) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+
+    std::vector<int> vec(100, 0);
+
+    taskflow.for_each(vec.begin(), vec.end(),
+        [](int& val){ val = 1; }
+    );
+
+    executor.run(taskflow).wait();
+
+    for(const auto& val : vec) {
+        EXPECT_EQ(val, 1);
+    }
+}
+
+// Parameterized test for partitioners
+class ForEachPartitionerTest : public ::testing::TestWithParam<size_t> {};
+
+TEST_P(ForEachPartitionerTest, WithChunkSize) {
+    size_t chunk_size = GetParam();
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+
+    std::vector<int> vec(1000, 0);
+    std::atomic<int> counter{0};
+
+    taskflow.for_each_index(0, 1000, 1,
+        [&](int i){ counter++; vec[i] = i; },
+        tf::GuidedPartitioner(chunk_size)
+    );
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 1000);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ChunkSizes,
+    ForEachPartitionerTest,
+    ::testing::Values(0, 1, 3, 7, 99)
+);
 ```
 
 ### reduce Testing
 
 ```cpp
-template <typename P>
-void test_reduce(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowAlgorithm, ReduceSum) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::vector<int> data(1000);
-  for(auto& d : data) d = rand() % 100;
+    std::vector<int> data(1000);
+    for(size_t i = 0; i < data.size(); i++) {
+        data[i] = static_cast<int>(i);
+    }
 
-  int sequential_sum = 0;
-  for(auto& d : data) sequential_sum += d;
+    // Sequential baseline
+    int sequential_sum = 0;
+    for(const auto& d : data) sequential_sum += d;
 
-  int parallel_sum = 0;
-  taskflow.reduce(data.begin(), data.end(), parallel_sum,
-    [](int a, int b){ return a + b; },
-    P()
-  );
+    // Parallel reduce
+    int parallel_sum = 0;
+    taskflow.reduce(data.begin(), data.end(), parallel_sum,
+        [](int a, int b){ return a + b; }
+    );
 
-  executor.run(taskflow).wait();
-  REQUIRE(parallel_sum == sequential_sum);
+    executor.run(taskflow).wait();
+    EXPECT_EQ(parallel_sum, sequential_sum);
+}
+
+TEST(TaskflowAlgorithm, ReduceMin) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+
+    std::vector<int> data = {5, 2, 8, 1, 9, 3, 7, 4, 6};
+
+    int min_val = std::numeric_limits<int>::max();
+    taskflow.reduce(data.begin(), data.end(), min_val,
+        [](int a, int b){ return std::min(a, b); }
+    );
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(min_val, 1);
 }
 ```
 
 ### sort Testing
 
 ```cpp
-void test_sort(unsigned W, size_t N) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowAlgorithm, SortIntegers) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::vector<int> data(N);
-  for(auto& d : data) d = rand() % 1000 - 500;
+    std::vector<int> data(10000);
+    for(auto& d : data) d = rand() % 1000 - 500;
 
-  taskflow.sort(data.begin(), data.end());
+    taskflow.sort(data.begin(), data.end());
 
-  executor.run(taskflow).wait();
-  REQUIRE(std::is_sorted(data.begin(), data.end()));
+    executor.run(taskflow).wait();
+    EXPECT_TRUE(std::is_sorted(data.begin(), data.end()));
 }
 
-// Custom comparator
-taskflow.sort(data.begin(), data.end(),
-  [](const auto& a, const auto& b){ return a.value < b.value; }
-);
+TEST(TaskflowAlgorithm, SortWithComparator) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+
+    struct Item {
+        int value;
+        std::string name;
+    };
+
+    std::vector<Item> items = {
+        {3, "c"}, {1, "a"}, {2, "b"}
+    };
+
+    taskflow.sort(items.begin(), items.end(),
+        [](const Item& a, const Item& b){
+            return a.value < b.value;
+        }
+    );
+
+    executor.run(taskflow).wait();
+
+    EXPECT_EQ(items[0].value, 1);
+    EXPECT_EQ(items[1].value, 2);
+    EXPECT_EQ(items[2].value, 3);
+}
 ```
 
 ### transform Testing
 
 ```cpp
-template <typename P>
-void test_transform(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowAlgorithm, TransformToString) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::vector<int> src(1000);
-  std::vector<std::string> dst(1000);
+    std::vector<int> src = {1, 2, 3, 4, 5};
+    std::vector<std::string> dst(5);
 
-  for(size_t i = 0; i < src.size(); i++) src[i] = i;
+    taskflow.transform(src.begin(), src.end(), dst.begin(),
+        [](int x){ return std::to_string(x * 2); }
+    );
 
-  taskflow.transform(src.begin(), src.end(), dst.begin(),
-    [](int x){ return std::to_string(x * 2); },
-    P()
-  );
+    executor.run(taskflow).wait();
 
-  executor.run(taskflow).wait();
-
-  for(size_t i = 0; i < src.size(); i++) {
-    REQUIRE(dst[i] == std::to_string(src[i] * 2));
-  }
+    EXPECT_EQ(dst[0], "2");
+    EXPECT_EQ(dst[1], "4");
+    EXPECT_EQ(dst[2], "6");
+    EXPECT_EQ(dst[3], "8");
+    EXPECT_EQ(dst[4], "10");
 }
 ```
 
 ### scan Testing
 
 ```cpp
-void test_inclusive_scan(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowAlgorithm, InclusiveScan) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::vector<int> input = {1, 2, 3, 4, 5};
-  std::vector<int> output(5);
+    std::vector<int> input = {1, 2, 3, 4, 5};
+    std::vector<int> output(5);
 
-  taskflow.inclusive_scan(input.begin(), input.end(), output.begin(),
-    [](int a, int b){ return a + b; }
-  );
+    taskflow.inclusive_scan(input.begin(), input.end(), output.begin(),
+        [](int a, int b){ return a + b; }
+    );
 
-  executor.run(taskflow).wait();
+    executor.run(taskflow).wait();
 
-  // Expected: [1, 3, 6, 10, 15]
-  REQUIRE(output == std::vector<int>{1, 3, 6, 10, 15});
+    // Expected: [1, 3, 6, 10, 15]
+    std::vector<int> expected = {1, 3, 6, 10, 15};
+    EXPECT_EQ(output, expected);
+}
+
+TEST(TaskflowAlgorithm, ExclusiveScan) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+
+    std::vector<int> input = {1, 2, 3, 4, 5};
+    std::vector<int> output(5);
+
+    taskflow.exclusive_scan(input.begin(), input.end(), output.begin(),
+        0,  // Initial value
+        [](int a, int b){ return a + b; }
+    );
+
+    executor.run(taskflow).wait();
+
+    // Expected: [0, 1, 3, 6, 10]
+    std::vector<int> expected = {0, 1, 3, 6, 10};
+    EXPECT_EQ(output, expected);
 }
 ```
 
@@ -336,32 +499,36 @@ void test_inclusive_scan(unsigned W) {
 ### Basic Pipeline
 
 ```cpp
-void test_pipeline(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(TaskflowPipeline, ThreeStages) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-  std::atomic<int> counter{0};
+    std::atomic<int> stage1_count{0};
+    std::atomic<int> stage2_count{0};
+    std::atomic<int> stage3_count{0};
 
-  tf::Pipeline pl(4,  // 4 parallel lines
-    tf::Pipe{tf::PipeType::SERIAL, [&](tf::Pipeflow& pf){
-      if(pf.token() == 10) {
-        pf.stop();
-        return;
-      }
-      counter++;
-    }},
-    tf::Pipe{tf::PipeType::PARALLEL, [&](tf::Pipeflow& pf){
-      counter++;
-    }},
-    tf::Pipe{tf::PipeType::SERIAL, [&](tf::Pipeflow& pf){
-      counter++;
-    }}
-  );
+    tf::Pipeline pl(4,  // 4 parallel lines
+        tf::Pipe{tf::PipeType::SERIAL, [&](tf::Pipeflow& pf){
+            if(pf.token() == 10) {
+                pf.stop();
+                return;
+            }
+            stage1_count++;
+        }},
+        tf::Pipe{tf::PipeType::PARALLEL, [&](tf::Pipeflow& pf){
+            stage2_count++;
+        }},
+        tf::Pipe{tf::PipeType::SERIAL, [&](tf::Pipeflow& pf){
+            stage3_count++;
+        }}
+    );
 
-  taskflow.composed_of(pl);
-  executor.run(taskflow).wait();
+    taskflow.composed_of(pl);
+    executor.run(taskflow).wait();
 
-  REQUIRE(counter == 30);  // 10 tokens * 3 stages
+    EXPECT_EQ(stage1_count, 10);
+    EXPECT_EQ(stage2_count, 10);
+    EXPECT_EQ(stage3_count, 10);
 }
 ```
 
@@ -374,16 +541,20 @@ void test_pipeline(unsigned W) {
 Verify all tasks executed:
 
 ```cpp
-std::atomic<size_t> counter{0};
+TEST(Verification, AtomicCounter) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<size_t> counter{0};
 
-for(int i = 0; i < 100; i++) {
-  taskflow.emplace([&]{
-    counter.fetch_add(1, std::memory_order_relaxed);
-  });
+    for(int i = 0; i < 100; i++) {
+        taskflow.emplace([&]{
+            counter.fetch_add(1, std::memory_order_relaxed);
+        });
+    }
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 100);
 }
-
-executor.run(taskflow).wait();
-REQUIRE(counter == 100);
 ```
 
 ### State Ordering Pattern
@@ -391,73 +562,93 @@ REQUIRE(counter == 100);
 Verify sequential dependencies:
 
 ```cpp
-int state = 0;
+TEST(Verification, StateOrdering) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    int state = 0;
 
-auto A = taskflow.emplace([&]{
-  REQUIRE(state == 0);
-  state = 1;
-});
+    auto A = taskflow.emplace([&]{
+        EXPECT_EQ(state, 0);
+        state = 1;
+    });
 
-auto B = taskflow.emplace([&]{
-  REQUIRE(state == 1);
-  state = 2;
-});
+    auto B = taskflow.emplace([&]{
+        EXPECT_EQ(state, 1);
+        state = 2;
+    });
 
-auto C = taskflow.emplace([&]{
-  REQUIRE(state == 2);
-  state = 3;
-});
+    auto C = taskflow.emplace([&]{
+        EXPECT_EQ(state, 2);
+        state = 3;
+    });
 
-A.precede(B);
-B.precede(C);
+    A.precede(B);
+    B.precede(C);
 
-executor.run(taskflow).wait();
-REQUIRE(state == 3);
+    executor.run(taskflow).wait();
+    EXPECT_EQ(state, 3);
+}
 ```
 
 ### Data Correctness Pattern
 
-Verify algorithm results:
+Compare parallel with sequential:
 
 ```cpp
-// Compare parallel with sequential
-int seq_result = 0;
-for(auto& x : data) seq_result += x;
+TEST(Verification, DataCorrectness) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-int par_result = 0;
-taskflow.reduce(data.begin(), data.end(), par_result, std::plus<int>());
-executor.run(taskflow).wait();
+    std::vector<int> data(1000);
+    for(size_t i = 0; i < data.size(); i++) {
+        data[i] = static_cast<int>(i);
+    }
 
-REQUIRE(par_result == seq_result);
+    // Sequential baseline
+    int seq_result = 0;
+    for(const auto& x : data) seq_result += x;
+
+    // Parallel reduce
+    int par_result = 0;
+    taskflow.reduce(data.begin(), data.end(), par_result, std::plus<int>());
+    executor.run(taskflow).wait();
+
+    EXPECT_EQ(par_result, seq_result);
+}
 ```
 
 ### Exception Handling Pattern
 
 ```cpp
-auto throwing_task = taskflow.emplace([]{
-  throw std::runtime_error("test error");
-});
+TEST(Verification, ExceptionPropagation) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-REQUIRE_THROWS_WITH_AS(
-  executor.run(taskflow).get(),
-  "test error",
-  std::runtime_error
-);
-```
+    taskflow.emplace([]{
+        throw std::runtime_error("test error");
+    });
 
-**Partial Execution on Exception:**
-```cpp
-std::atomic<int> counter{0};
+    EXPECT_THROW(executor.run(taskflow).get(), std::runtime_error);
+}
 
-auto A = taskflow.emplace([&]{ counter++; });
-auto B = taskflow.emplace([&]{ counter++; throw std::runtime_error("x"); });
-auto C = taskflow.emplace([&]{ counter++; });
+TEST(Verification, PartialExecutionOnException) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-A.precede(B);
-B.precede(C);
+    auto A = taskflow.emplace([&]{ counter++; });
+    auto B = taskflow.emplace([&]{
+        counter++;
+        throw std::runtime_error("error");
+    });
+    auto C = taskflow.emplace([&]{ counter++; });
 
-REQUIRE_THROWS(executor.run(taskflow).get());
-REQUIRE(counter == 2);  // A and B ran, C did not
+    A.precede(B);
+    B.precede(C);
+
+    EXPECT_THROW(executor.run(taskflow).get(), std::runtime_error);
+    EXPECT_EQ(counter, 2);  // A and B ran, C did not
+}
 ```
 
 ---
@@ -467,94 +658,115 @@ REQUIRE(counter == 2);  // A and B ran, C did not
 ### Empty Taskflow
 
 ```cpp
-tf::Taskflow taskflow;
-tf::Executor executor;
+TEST(EdgeCases, EmptyTaskflow) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-REQUIRE(taskflow.empty());
-REQUIRE(taskflow.num_tasks() == 0);
+    EXPECT_TRUE(taskflow.empty());
+    EXPECT_EQ(taskflow.num_tasks(), 0);
 
-executor.run(taskflow).wait();  // Should not crash
+    EXPECT_NO_THROW(executor.run(taskflow).wait());
+}
 ```
 
 ### Single Task
 
 ```cpp
-int value = 0;
-taskflow.emplace([&]{ value = 42; });
+TEST(EdgeCases, SingleTask) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    int value = 0;
 
-REQUIRE(taskflow.num_tasks() == 1);
-executor.run(taskflow).wait();
-REQUIRE(value == 42);
+    taskflow.emplace([&]{ value = 42; });
+
+    EXPECT_EQ(taskflow.num_tasks(), 1);
+    executor.run(taskflow).wait();
+    EXPECT_EQ(value, 42);
+}
 ```
 
 ### Placeholder Tasks
 
 ```cpp
-std::vector<tf::Task> tasks;
+TEST(EdgeCases, PlaceholderTasks) {
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-for(int i = 0; i < 100; i++) {
-  tasks.push_back(taskflow.placeholder().name(std::to_string(i)));
+    std::vector<tf::Task> tasks;
+
+    for(int i = 0; i < 100; i++) {
+        tasks.push_back(taskflow.placeholder().name(std::to_string(i)));
+    }
+
+    // Verify placeholders exist
+    for(int i = 0; i < 100; i++) {
+        EXPECT_EQ(tasks[i].name(), std::to_string(i));
+    }
+
+    // Assign work later
+    for(auto& t : tasks) {
+        t.work([&]{ counter++; });
+    }
+
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, 100);
 }
-
-// Verify placeholders exist
-for(int i = 0; i < 100; i++) {
-  REQUIRE(tasks[i].name() == std::to_string(i));
-}
-
-// Assign work later
-int counter = 0;
-for(auto& t : tasks) {
-  t.work([&]{ counter++; });
-}
-
-executor.run(taskflow).wait();
-REQUIRE(counter == 100);
 ```
 
 ### Move-Only Types
 
 ```cpp
-struct MoveOnly {
-  int value;
-  MoveOnly(int v) : value(v) {}
-  MoveOnly(const MoveOnly&) = delete;
-  MoveOnly(MoveOnly&&) = default;
-};
+TEST(EdgeCases, MoveOnlyTypes) {
+    struct MoveOnly {
+        int value;
+        MoveOnly(int v) : value(v) {}
+        MoveOnly(const MoveOnly&) = delete;
+        MoveOnly(MoveOnly&&) = default;
+        MoveOnly& operator=(const MoveOnly&) = delete;
+        MoveOnly& operator=(MoveOnly&&) = default;
+    };
 
-std::vector<MoveOnly> data;
-for(int i = 0; i < 1000; i++) data.emplace_back(rand() % 100);
+    tf::Executor executor(4);
+    tf::Taskflow taskflow;
 
-taskflow.sort(data.begin(), data.end(),
-  [](const MoveOnly& a, const MoveOnly& b){
-    return a.value < b.value;
-  }
-);
+    std::vector<MoveOnly> data;
+    for(int i = 0; i < 1000; i++) {
+        data.emplace_back(rand() % 100);
+    }
 
-executor.run(taskflow).wait();
+    taskflow.sort(data.begin(), data.end(),
+        [](const MoveOnly& a, const MoveOnly& b){
+            return a.value < b.value;
+        }
+    );
 
-for(size_t i = 1; i < data.size(); i++) {
-  REQUIRE(data[i-1].value <= data[i].value);
+    executor.run(taskflow).wait();
+
+    for(size_t i = 1; i < data.size(); i++) {
+        EXPECT_LE(data[i-1].value, data[i].value);
+    }
 }
 ```
 
 ### Stress Test Pattern
 
 ```cpp
-void stress_test(unsigned W) {
-  tf::Executor executor(W);
-  tf::Taskflow taskflow;
+TEST(EdgeCases, StressTest) {
+    tf::Executor executor(8);
+    tf::Taskflow taskflow;
+    std::atomic<int> counter{0};
 
-  std::atomic<int> counter{0};
-  const int N = 100000;
+    const int N = 100000;
 
-  for(int i = 0; i < N; i++) {
-    taskflow.emplace([&]{
-      counter.fetch_add(1, std::memory_order_relaxed);
-    });
-  }
+    for(int i = 0; i < N; i++) {
+        taskflow.emplace([&]{
+            counter.fetch_add(1, std::memory_order_relaxed);
+        });
+    }
 
-  executor.run(taskflow).wait();
-  REQUIRE(counter == N);
+    executor.run(taskflow).wait();
+    EXPECT_EQ(counter, N);
 }
 ```
 
@@ -575,10 +787,10 @@ void stress_test(unsigned W) {
 
 | Partitioner | Use Case |
 |-------------|----------|
-| `tf::GuidedPartitioner<>` | General purpose, good load balancing |
-| `tf::StaticPartitioner<>` | Uniform work, predictable |
-| `tf::DynamicPartitioner<>` | Variable work per element |
-| `tf::RandomPartitioner<>` | Testing, debugging |
+| `tf::GuidedPartitioner(c)` | General purpose, good load balancing |
+| `tf::StaticPartitioner(c)` | Uniform work, predictable |
+| `tf::DynamicPartitioner(c)` | Variable work per element |
+| `tf::RandomPartitioner(c)` | Testing, debugging |
 
 ### Execution Methods
 
@@ -590,19 +802,27 @@ void stress_test(unsigned W) {
 | `executor.run_until(tf, pred).wait()` | Run until predicate true |
 | `executor.wait_for_all()` | Wait for all async tasks |
 
+### GoogleTest Assertions for Taskflow
+
+| Assertion | Use Case |
+|-----------|----------|
+| `EXPECT_EQ(counter, N)` | Verify task execution count |
+| `EXPECT_TRUE(std::is_sorted(...))` | Verify sort results |
+| `EXPECT_THROW(run().get(), type)` | Verify exception handling |
+| `EXPECT_NO_THROW(run().wait())` | Verify no exceptions |
+| `EXPECT_EQ(vec, expected_vec)` | Compare entire vectors |
+
 ### Test Data Sizes
 
 | Purpose | Sizes |
 |---------|-------|
 | Basic correctness | 0, 1, 10, 100 |
-| Boundary testing | 0, 1, 2, 3, 7, 99 (chunk sizes) |
-| Stress testing | 10000, 100000, 1000000 |
-| Exponential sweep | 1, 2, 4, 8, ..., 65536 |
+| Boundary testing | 0, 1, 3, 7, 99 (chunk sizes) |
+| Stress testing | 10000, 100000 |
 
-### Thread Counts
+### Thread Counts for Parameterized Tests
 
-| Purpose | Values |
-|---------|--------|
-| Basic | 1, 2, 4 |
-| Comprehensive | 1, 2, 3, 4, 5, 6, 7, 8 |
-| Stress | 1, 2, 4, 8, 16, 32 |
+```cpp
+::testing::Values(1, 2, 4, 8)      // Basic
+::testing::Values(1, 2, 3, 4, 5, 6, 7, 8)  // Comprehensive
+```
