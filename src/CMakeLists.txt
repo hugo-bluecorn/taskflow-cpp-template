@@ -10,5 +10,8 @@ target_include_directories(mylib
         $<INSTALL_INTERFACE:include>
 )
 
+# Link to Taskflow (includes threading automatically)
+target_link_libraries(mylib PUBLIC Taskflow::Taskflow)
+
 # Alias for consistent usage
 add_library(mylib::mylib ALIAS mylib)

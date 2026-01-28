@@ -5,7 +5,7 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(cpp_claude_template VERSION 0.1.0 LANGUAGES CXX)
+project(taskflow_quickstart VERSION 0.1.0 LANGUAGES CXX)
 
 # C++20 standard (GoogleTest requires C++17 minimum)
 set(CMAKE_CXX_STANDARD 20)
@@ -14,6 +14,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Export compile commands for clang-tidy and IDEs
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Threading support (required for Taskflow)
+find_package(Threads REQUIRED)
+
+# Taskflow library (header-only)
+set(TF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(ext/taskflow)
 
 # Options
 option(BUILD_TESTING "Build tests" ON)

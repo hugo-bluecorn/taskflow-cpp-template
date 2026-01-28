@@ -4,34 +4,48 @@
         {
             "name": "default",
             "displayName": "Default Debug",
-            "description": "Default debug build with GCC",
+            "description": "Default debug build with Clang",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "/usr/bin/gcc",
-                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
             "name": "release",
             "displayName": "Release",
-            "description": "Optimized release build",
+            "description": "Optimized release build with Clang",
             "binaryDir": "${sourceDir}/build-release",
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "/usr/bin/gcc",
-                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
                 "CMAKE_BUILD_TYPE": "Release",
                 "BUILD_TESTING": "OFF"
             }
         },
         {
-            "name": "tdd",
-            "displayName": "TDD Development",
-            "description": "Debug build with coverage and sanitizers for TDD workflow",
-            "binaryDir": "${sourceDir}/build-tdd",
+            "name": "tdd-tsan",
+            "displayName": "TDD with Thread Sanitizer",
+            "description": "Debug build with thread and UB sanitizers for TDD workflow",
+            "binaryDir": "${sourceDir}/build-tdd-tsan",
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "/usr/bin/gcc",
-                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_COVERAGE": "OFF",
+                "CMAKE_CXX_FLAGS": "-fsanitize=thread,undefined -g -fno-omit-frame-pointer",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread,undefined"
+            }
+        },
+        {
+            "name": "tdd-asan",
+            "displayName": "TDD with Address Sanitizer",
+            "description": "Debug build with address and UB sanitizers for memory checking",
+            "binaryDir": "${sourceDir}/build-tdd-asan",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_COVERAGE": "ON",
                 "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
@@ -49,8 +63,12 @@
             "configurePreset": "release"
         },
         {
-            "name": "tdd",
-            "configurePreset": "tdd"
+            "name": "tdd-tsan",
+            "configurePreset": "tdd-tsan"
+        },
+        {
+            "name": "tdd-asan",
+            "configurePreset": "tdd-asan"
         }
     ],
     "testPresets": [
@@ -62,8 +80,16 @@
             }
         },
         {
-            "name": "tdd",
-            "configurePreset": "tdd",
+            "name": "tdd-tsan",
+            "configurePreset": "tdd-tsan",
+            "output": {
+                "outputOnFailure": true,
+                "verbosity": "verbose"
+            }
+        },
+        {
+            "name": "tdd-asan",
+            "configurePreset": "tdd-asan",
             "output": {
                 "outputOnFailure": true,
                 "verbosity": "verbose"
