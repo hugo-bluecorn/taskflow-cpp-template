@@ -1,0 +1,10 @@
+# External submodules placeholder
+# Add external GitHub repositories as submodules here:
+#
+# Example:
+#   git submodule add https://github.com/owner/repo ext/repo
+#
+# Suggested submodules:
+# - Library documentation
+# - Reference implementations
+# - Related project code

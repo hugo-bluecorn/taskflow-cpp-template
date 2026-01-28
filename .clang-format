@@ -1,0 +1,72 @@
+# Clang-format configuration based on Google style
+# Reference: https://google.github.io/styleguide/cppguide.html
+
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+
+# Column limit per Google style
+ColumnLimit: 80
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -2
+IndentCaseLabels: true
+NamespaceIndentation: None
+
+# Braces
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: true
+AlignTrailingComments: true
+
+# Include ordering per Google style
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Related header (same name as .cpp file)
+  - Regex: '^".*\.hpp"$'
+    Priority: 1
+  # C system headers
+  - Regex: '^<c.*>$'
+    Priority: 2
+  # C++ standard library
+  - Regex: '^<.*>$'
+    Priority: 3
+  # Third-party libraries
+  - Regex: '^<.*/'
+    Priority: 4
+  # Project headers
+  - Regex: '^".*"$'
+    Priority: 5
+
+# Pointer and reference alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+
+# Other
+SortIncludes: true
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpacesInAngles: false
+SpacesInContainerLiterals: true
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Line breaks
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+PackConstructorInitializers: NextLine

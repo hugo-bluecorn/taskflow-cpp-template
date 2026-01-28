@@ -1,0 +1,62 @@
+# Build directories
+build/
+build-*/
+out/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+!cmake/*.cmake
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.lib
+*.dll
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+*.user
+*.suo
+
+# Code coverage
+*.gcda
+*.gcno
+*.gcov
+coverage/
+coverage.info
+
+# clang tools
+.cache/
+compile_commands.json
+
+# Testing
+Testing/
+CTestTestfile.cmake
+
+# Package files
+*.tar.gz
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude Code local files
+.claude/settings.local.json
+.claude/CLAUDE.local.md
