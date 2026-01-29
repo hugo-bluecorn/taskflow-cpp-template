@@ -5,7 +5,7 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(taskflow_quickstart VERSION 0.1.0 LANGUAGES CXX)
+project(taskflow_cpp_template VERSION 0.1.0 LANGUAGES CXX)
 
 # C++20 standard (GoogleTest requires C++17 minimum)
 set(CMAKE_CXX_STANDARD 20)
