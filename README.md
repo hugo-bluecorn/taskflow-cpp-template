@@ -1,16 +1,50 @@
 # C++ CMake Template
 
-A modern C++ project template using CMake, GoogleTest, and code quality tools.
+A modern C++ project template using CMake, GoogleTest, Taskflow, and TDD workflow.
+
+## Using This Template
+
+### GitHub Users
+
+Click the **"Use this template"** button above to create a new repository.
+
+### GitLab / Other Platforms
+
+```bash
+# Clone the template
+git clone --depth 1 https://github.com/hugo-bluecorn/taskflow-cpp-template.git my-project
+cd my-project
+
+# Remove template history and reinitialize
+rm -rf .git
+git init
+git add .
+git commit -m "Initial commit from taskflow-cpp-template"
+
+# Update the project name in CMakeLists.txt
+# Change: project(taskflow_cpp_template ...) to project(my_project ...)
+```
+
+### After Creating Your Project
+
+1. Update `project()` name in `CMakeLists.txt`
+2. Rename `include/mylib/` and `src/` library files as needed
+3. Update test file names in `tests/`
+4. Read `context/project/taskflow-unit-test-primer.md` for TDD workflow guide
 
 ## Features
 
-- **C++20** standard
+- **C++20** standard with Clang toolchain
+- **Taskflow** for parallel/concurrent programming (submodule)
 - **CMake** build system with presets
 - **GoogleTest** for unit testing (via FetchContent)
+- **TDD workflow** with dedicated presets and primer documentation
+- **Thread Sanitizer** for race condition detection
+- **Address Sanitizer** for memory error detection
+- **Code coverage** with gcov/lcov
 - **clang-format** for code formatting (Google style)
 - **clang-tidy** for static analysis
-- **Code coverage** with gcov/lcov
-- **Sanitizers** (AddressSanitizer, UndefinedBehaviorSanitizer)
+- **VSCode integration** with C++ TestMate debugging
 
 ## Project Structure
 
@@ -41,9 +75,13 @@ cmake --build build
 cmake --preset release
 cmake --build build-release
 
-# TDD development (with coverage and sanitizers)
-cmake --preset tdd
-cmake --build build-tdd
+# TDD with Thread Sanitizer (recommended for Taskflow development)
+cmake --preset tdd-tsan
+cmake --build build-tdd-tsan
+
+# TDD with Address Sanitizer + Coverage
+cmake --preset tdd-asan
+cmake --build build-tdd-asan
 ```
 
 ### Manual Build
@@ -69,15 +107,15 @@ ctest --test-dir build -R "GreetTest"
 ## Code Coverage
 
 ```bash
-# Build with coverage preset
-cmake --preset tdd
-cmake --build build-tdd
+# Build with ASan preset (includes coverage)
+cmake --preset tdd-asan
+cmake --build build-tdd-asan
 
 # Generate coverage report
-cmake --build build-tdd --target coverage
+cmake --build build-tdd-asan --target coverage
 
-# View report
-open build-tdd/coverage/index.html
+# View report (Linux)
+xdg-open build-tdd-asan/coverage/index.html
 ```
 
 ## Code Quality
