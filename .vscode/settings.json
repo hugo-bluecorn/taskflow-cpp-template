@@ -1,0 +1,12 @@
+{
+    "testMate.cpp.debug.configTemplate": {
+        "type": "cppdbg",
+        "linux": { "type": "cppdbg", "MIMode": "gdb" },
+        "darwin": { "type": "cppdbg", "MIMode": "lldb" },
+        "program": "${exec}",
+        "args": "${argsArray}",
+        "cwd": "${cwd}",
+        "env": "${envObj}",
+        "environment": "${envObjArray}"
+    }
+}
