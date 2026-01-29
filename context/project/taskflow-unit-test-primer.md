@@ -86,14 +86,18 @@ Expected: All existing tests pass with no sanitizer warnings.
 
 **Required Extensions:**
 
-| Extension | ID | Purpose |
-|-----------|-----|---------|
-| C/C++ Extension Pack | `ms-vscode.cpptools-extension-pack` | C/C++, C/C++ Themes, CMake Tools |
-| CMake Tools | `ms-vscode.cmake-tools` | CMake presets, build, configure |
-| Makefile Tools | `ms-vscode.makefile-tools` | Makefile support |
-| C++ TestMate | `matepek.vscode-catch2-test-adapter` | Test Explorer integration |
+| Extension | ID |
+|-----------|-----|
+| C/C++ Extension Pack | `ms-vscode.cpptools-extension-pack` |
+| Makefile Tools | `ms-vscode.makefile-tools` |
+| C++ TestMate | `matepek.vscode-catch2-test-adapter` |
 
-Install any missing extensions from the Extensions sidebar (`Ctrl+Shift+X`).
+**Note:** C/C++ Extension Pack installs three extensions:
+- C/C++ (`ms-vscode.cpptools`) - IntelliSense, debugging
+- C/C++ Themes (`ms-vscode.cpptools-themes`) - Syntax highlighting
+- CMake Tools (`ms-vscode.cmake-tools`) - CMake presets, build, configure
+
+Install from Extensions sidebar (`Ctrl+Shift+X`).
 
 **Verify setup:**
 - CMake pane shows the project (click CMake icon in sidebar)
