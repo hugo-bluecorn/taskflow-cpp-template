@@ -84,8 +84,19 @@ Expected: All existing tests pass with no sanitizer warnings.
 
 ### 0.4: Verify VSCode Setup
 
-Verify:
-- C++ TestMate extension is installed (check Extensions sidebar)
+**Required Extensions:**
+
+| Extension | ID | Purpose |
+|-----------|-----|---------|
+| C/C++ Extension Pack | `ms-vscode.cpptools-extension-pack` | C/C++, C/C++ Themes, CMake Tools |
+| CMake Tools | `ms-vscode.cmake-tools` | CMake presets, build, configure |
+| Makefile Tools | `ms-vscode.makefile-tools` | Makefile support |
+| C++ TestMate | `matepek.vscode-catch2-test-adapter` | Test Explorer integration |
+
+Install any missing extensions from the Extensions sidebar (`Ctrl+Shift+X`).
+
+**Verify setup:**
+- CMake pane shows the project (click CMake icon in sidebar)
 - Test Explorer shows existing tests (beaker icon in sidebar)
 - All tests show green checkmarks after running
 
