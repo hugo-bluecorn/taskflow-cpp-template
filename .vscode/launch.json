@@ -5,7 +5,7 @@
             "name": "C++ Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-tdd-tsan/tests/mylib_tests",
+            "program": "${command:cmake.buildDirectory}/tests/mylib_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,

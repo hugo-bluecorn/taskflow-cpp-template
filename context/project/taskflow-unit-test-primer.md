@@ -1029,13 +1029,30 @@ You have been developing with `tdd-tsan` (Thread Sanitizer) which catches race c
 
 ### 6.1: Build with Address Sanitizer
 
+**VSCode:**
+1. Open the CMake pane (click CMake icon in sidebar)
+2. Under **Configure**, click the current preset (e.g., "TDD with Thread Sanitizer")
+3. Select `tdd-asan` from the dropdown
+4. VSCode reconfigures automatically
+5. Under **Build**, click the build icon or press `F7`
+
+Or: `Ctrl+Shift+P` → "CMake: Select Configure Preset" → `tdd-asan`
+
+**Terminal:**
 ```bash
 cmake --preset tdd-asan
 cmake --build build-tdd-asan
 ```
 
+> **Note:** Terminal commands and VSCode CMake Tools have independent state. If you switch presets via terminal, the VSCode UI won't update (and vice versa). Pick one method for consistency.
+
 ### 6.2: Run Tests
 
+**VSCode:**
+1. Click Testing icon (beaker) in the sidebar
+2. Run the `SimplePipeline` tests
+
+**Terminal:**
 ```bash
 ctest --test-dir build-tdd-asan -R SimplePipeline --output-on-failure
 ```
