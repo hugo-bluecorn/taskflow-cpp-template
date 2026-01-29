@@ -86,16 +86,11 @@ Expected: All existing tests pass with no sanitizer warnings.
 
 **Required Extensions:**
 
-| Extension | ID |
-|-----------|-----|
-| C/C++ Extension Pack | `ms-vscode.cpptools-extension-pack` |
-| Makefile Tools | `ms-vscode.makefile-tools` |
-| C++ TestMate | `matepek.vscode-catch2-test-adapter` |
-
-**Note:** C/C++ Extension Pack installs three extensions:
-- C/C++ (`ms-vscode.cpptools`) - IntelliSense, debugging
-- C/C++ Themes (`ms-vscode.cpptools-themes`) - Syntax highlighting
-- CMake Tools (`ms-vscode.cmake-tools`) - CMake presets, build, configure
+| Extension | ID | Installs |
+|-----------|-----|----------|
+| C/C++ Extension Pack | `ms-vscode.cpptools-extension-pack` | C/C++, C/C++ Themes, CMake Tools |
+| Makefile Tools | `ms-vscode.makefile-tools` | - |
+| C++ TestMate | `matepek.vscode-catch2-test-adapter` | - |
 
 Install from Extensions sidebar (`Ctrl+Shift+X`).
 
