@@ -1147,11 +1147,13 @@ Examples:
 You are now ready to develop real features. When starting a new feature:
 
 1. Create a feature branch: `git checkout -b feature/<name>`
-2. Use `/tdd-new <feature>` to create a TDD task file
-3. Follow the Red-Green-Refactor cycle
-4. Use `/tdd-test` to run tests with phase context
+2. Write failing test (RED)
+3. Write minimal code to pass (GREEN)
+4. Refactor and commit (REFACTOR)
 5. Update `CHANGELOG.md` before final commit
 6. Create a pull request to `main`
+
+This is the manual workflow you learned in this primer. Claude Code users can optionally use `/tdd-workflow` to automate these steps (see below).
 
 ### Reference Documentation
 
@@ -1163,10 +1165,14 @@ You are now ready to develop real features. When starting a new feature:
 | `context/standards/cpp-commits.md` | Commit message conventions |
 | `.claude/commands/tdd-workflow.md` | Full TDD workflow command |
 
-### TDD Slash Commands
+### TDD Slash Commands (Claude Code)
+
+These commands automate the TDD workflow you learned in this primer. They're **optional** - the manual workflow works fine, but these can speed up development when using Claude Code.
 
 | Command | Purpose |
 |---------|---------|
 | `/tdd-new <feature>` | Create TDD task file for new feature |
 | `/tdd-test` | Run tests with phase context |
 | `/tdd-workflow <task>` | Execute full guided TDD workflow |
+
+**Note:** This primer taught the manual workflow so you understand what's happening under the hood. The slash commands automate these same steps.
