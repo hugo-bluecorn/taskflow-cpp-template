@@ -45,6 +45,7 @@ add_subdirectory(app)
 if(BUILD_TESTING)
     enable_testing()
     include(FetchContent)
+    # GoogleTest v1.15.2 (2024-07-31)
     FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/b514bdc898e2951020cbdca1304b75f5950d1f59.zip
