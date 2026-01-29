@@ -6,7 +6,12 @@ A modern C++ project template using CMake, GoogleTest, Taskflow, and TDD workflo
 
 ### GitHub Users
 
-Click the **"Use this template"** button above to create a new repository.
+Click the **"Use this template"** button above, or use the GitHub CLI:
+
+```bash
+gh repo create my-project --template hugo-bluecorn/taskflow-cpp-template --clone
+cd my-project
+```
 
 ### GitLab / Other Platforms
 
