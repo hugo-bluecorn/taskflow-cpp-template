@@ -317,10 +317,11 @@ include(Coverage)
 ```
 
 ```bash
-cmake --preset tdd
-cmake --build build-tdd
-ctest --test-dir build-tdd
-cmake --build build-tdd --target coverage
+# This project uses tdd-asan for coverage (tdd-tsan for thread checking)
+cmake --preset tdd-asan
+cmake --build build-tdd-asan
+ctest --test-dir build-tdd-asan
+cmake --build build-tdd-asan --target coverage
 ```
 
 ## Sanitizers

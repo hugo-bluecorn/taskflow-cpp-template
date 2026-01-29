@@ -174,10 +174,11 @@ TEST(SharedMemory, Create_InvalidName_ReturnsError)
 
 ```
 project/
+├── include/mylib/
+│   └── buffer.hpp
 ├── src/
-│   ├── buffer.cpp
-│   └── buffer.h
-├── test/
+│   └── buffer.cpp
+├── tests/
 │   ├── buffer_test.cpp
 │   └── shared_memory_test.cpp
 └── CMakeLists.txt

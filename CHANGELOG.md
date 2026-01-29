@@ -12,12 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `context/libraries/` directory for project-specific Claude Code context
 - New developer TDD primer with step-by-step instructions
 - VSCode GoogleTest integration analysis document
+- VSCode debug configuration for C++ TestMate (`.vscode/settings.json`, `.vscode/launch.json`)
+- GitHub template setup with usage instructions in README
 
 ### Changed
 - TDD primer now uses `tdd-tsan` preset as primary development build
-
-### Changed
 - Refactored Taskflow testing patterns catalog from doctest to GoogleTest syntax
+- Renamed project from `taskflow_quickstart` to `taskflow_cpp_template`
+- launch.json uses dynamic `${command:cmake.buildDirectory}` for preset switching
+
+### Fixed
+- VSCode TestMate debugging now works across all CMake presets
 
 ## [0.1.0] - 2026-01-28
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Modern C++ template project with library, executable, and test structure. Uses C++20 standard with GoogleTest for testing.
+Modern C++ template project with library, executable, and test structure. Uses C++20 standard with GoogleTest for testing and Taskflow for parallel programming.
 
 ## Build Commands
 
@@ -17,31 +17,35 @@ cmake --build build
 cmake --preset release
 cmake --build build-release
 
-# TDD build (with coverage and sanitizers)
-cmake --preset tdd
-cmake --build build-tdd
+# TDD with Thread Sanitizer (recommended for Taskflow)
+cmake --preset tdd-tsan
+cmake --build build-tdd-tsan
+
+# TDD with Address Sanitizer + Coverage
+cmake --preset tdd-asan
+cmake --build build-tdd-asan
 ```
 
 ## Testing
 
 ```bash
 # Run all tests
-ctest --test-dir build --output-on-failure
+ctest --test-dir build-tdd-tsan --output-on-failure
 
 # Run tests by label
-ctest --test-dir build -L unit
+ctest --test-dir build-tdd-tsan -L unit
 
 # Run specific test pattern
-ctest --test-dir build -R "TestName"
+ctest --test-dir build-tdd-tsan -R "TestName"
 ```
 
 ## Code Coverage
 
 ```bash
-cmake --preset tdd
-cmake --build build-tdd
-cmake --build build-tdd --target coverage
-# Report: build-tdd/coverage/index.html
+cmake --preset tdd-asan
+cmake --build build-tdd-asan
+cmake --build build-tdd-asan --target coverage
+# Report: build-tdd-asan/coverage/index.html
 ```
 
 ## Code Quality
@@ -70,7 +74,7 @@ cmake/            CMake modules (Coverage.cmake)
 ## Key Files
 
 - `CMakeLists.txt` - Root build configuration
-- `CMakePresets.json` - Build presets (default, release, tdd)
+- `CMakePresets.json` - Build presets (default, release, tdd-tsan, tdd-asan)
 - `.clang-format` - Code formatting rules (Google style)
 - `.clang-tidy` - Static analysis configuration
 
